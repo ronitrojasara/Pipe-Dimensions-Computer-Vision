@@ -75,6 +75,9 @@ while True:
                     print(most_common_in_center)
                     # Draw circle with the most common center for the pipe
                     cv2.circle(image, (x, y), r, (0, 255, 0), 4)
+                    diameter = r*2
+                    diameter_cm = (diameter / 1296) * 30.48
+                    cv2.putText(image, f"Diameter: {diameter_cm:.2f} cm", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
                     break
             
         if out_center_counts !={} :
@@ -86,6 +89,9 @@ while True:
                     print(most_common_out_center)
                     # Draw circle with the most common center for the pipe
                     cv2.circle(image, (x, y), r, (255, 0, 0), 4)
+                    diameter = r*2
+                    diameter_cm = (diameter / 1296) * 30.48
+                    cv2.putText(image, f"Diameter: {diameter_cm:.2f} cm", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
                     break
     
     # Show the detected circles
