@@ -1,0 +1,106 @@
+#!/usr/bin/python3
+
+import cv2
+import numpy as np
+from picamera2 import Picamera2
+
+cv2.startWindowThread()
+
+picam2 = Picamera2()
+picam2.configure(picam2.create_preview_configuration(main={"format": 'XRGB8888', "size": (648, 486)}))
+picam2.start()
+
+while True:
+    image = picam2.capture_array()
+
+    # Convert image to grayscale
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Apply GaussianBlur to reduce noise and improve circle detection
+    blur = cv2.GaussianBlur(gray, (51, 51), 2)
+
+    # Detect circles using Hough Circle Transform
+    circles = cv2.HoughCircles(blur, cv2.HOUGH_GRADIENT, dp=1, minDist=1, param1=10, param2=110,
+                               minRadius=10, maxRadius=1000)
+
+    if circles is not None:
+        circles = np.round(circles[0, :]).astype("int")
+
+        in_center_counts = {}
+        out_center_counts = {}
+
+        inner_circles = []
+        outer_circles = []
+
+        for (x, y, r) in circles:
+            center = (x, y)
+            mean_intensity = np.mean(gray[y - r:y + r, x - r:x + r])
+
+            if mean_intensity < 45:
+                inner_circles.append((x, y, r))
+                if center in in_center_counts:
+                    in_center_counts[center] += 1
+                else:
+                    in_center_counts[center] = 1
+            else:
+                outer_circles.append((x, y, r))
+                if center in out_center_counts:
+                    out_center_counts[center] += 1
+                else:
+                    out_center_counts[center] = 1
+
+
+        if in_center_counts:
+            most_common_in_center = max(in_center_counts, key=in_center_counts.get)
+            most_common_in_center_x = None
+            most_common_in_center_y = None
+            for (x, y, r) in inner_circles:
+                if (x, y) == most_common_in_center and in_center_counts[(x, y)] > 1:
+                    most_common_in_center_x = x
+                    most_common_in_center_y = y 
+                    # cv2.circle(blur, (x, y), r, (0, 255, 0), 4)                    
+                    # diameter = r * 2
+                    # diameter_cm = (diameter / 1296) * 20.48
+                    # cv2.putText(blur, f"Diameter: {diameter_cm:.2f} cm", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                    break
+
+        if out_center_counts:
+            most_common_out_center = max(out_center_counts, key=out_center_counts.get)
+            closest_inner_circle_c_x = None
+            closest_inner_circle_c_y = None
+            min_distance = float('inf')
+            for (x, y, r) in inner_circles:
+                distance = np.sqrt((x - most_common_out_center[0])**2 + (y - most_common_out_center[1])**2)
+                if distance < min_distance:
+                    min_distance = distance
+                    closest_inner_circle_c_x = x
+                    closest_inner_circle_c_y = y
+                    closest_inner_circle = (x, y, r)
+
+            if closest_inner_circle_c_x!=None and most_common_in_center_x!=None and most_common_in_center_y!=None and closest_inner_circle_c_y!=None:
+                if abs(closest_inner_circle_c_x - most_common_in_center_x)<=5 and abs(most_common_in_center_y - closest_inner_circle_c_y)<=5:
+                    x, y, r = closest_inner_circle
+                    cv2.circle(blur, (x, y), r, (0, 0, 0), 4)
+                    diameter = r * 2
+                    diameter_cm = (diameter / 648) * 20.48
+                    cv2.putText(blur, f"Diameter: {diameter_cm:.2f} cm", (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+
+            for (x, y, r) in outer_circles:
+
+                if (x, y) == most_common_out_center and out_center_counts[(x, y)] > 1:
+                    cv2.circle(blur, (x, y), r, (255, 255, 255), 4)
+                    diameter = r * 2
+                    diameter_cm = (diameter / 648) * 20.48
+                    cv2.putText(blur, f"Diameter: {diameter_cm:.2f} cm", (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+                    break
+
+    # Show the detected circles
+    cv2.imshow("Detected Circles", blur)
+
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord('q'):
+        break
+
+# Release the VideoCapture object and close all windows
+picam2.stop_preview()
+cv2.destroyAllWindows()
