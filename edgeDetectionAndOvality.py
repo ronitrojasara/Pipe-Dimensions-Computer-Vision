@@ -56,12 +56,14 @@ while True:
             ellipse = cv2.fitEllipse(contour)
             (x, y), (major_axis, minor_axis), angle = ellipse
 
-            # Draw the ellipse
-            cv2.ellipse(frame, ellipse, (0, 255, 0), 2)
-
             # Calculate and display ovality
             ovality = major_axis / minor_axis
+            
+            if ovality<0.8:
+                continue
 
+            # Draw the ellipse
+            cv2.ellipse(frame, ellipse, (0, 255, 0), 2)
 
             diameter_cm = (minor_axis / 1296) * 20.48
 
